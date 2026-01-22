@@ -1,0 +1,22 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Environment variables and secrets
+.env
+
+# Project runtime and generated artifacts (not source-controlled)
+data/
+exports/
+logs/
+
+# Local environment lock file (machine-specific)
+uv.lock
+
