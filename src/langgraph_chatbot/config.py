@@ -4,7 +4,6 @@ Configuration management for the LangGraph Chatbot.
 This module handles all application settings using Pydantic for validation.
 """
 
-import os
 from pathlib import Path
 from typing import Literal
 
@@ -15,7 +14,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """
     Application settings with environment variable support.
-    
+
     Attributes
     ----------
     groq_api_key : str
@@ -37,33 +36,31 @@ class Settings(BaseSettings):
     exports_dir : str
         Directory for exported conversations
     """
-    
+
     # API Keys
     groq_api_key: str = Field(default="", alias="GROQ_API_KEY")
     openweather_api_key: str = Field(default="", alias="OPENWEATHER_API_KEY")
     tavily_api_key: str = Field(default="", alias="TAVILY_API_KEY")
-    
+
     # LLM Configuration
     model_name: str = Field(default="llama-3.3-70b-versatile")
     temperature: float = Field(default=0.5, ge=0.0, le=1.0)
-    
+
     # Application Settings
-    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
-        default="INFO"
-    )
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(default="INFO")
     database_path: str = Field(default="data/chatbot.db")
     logs_dir: str = Field(default="logs")
     exports_dir: str = Field(default="exports")
-    
+
     # Tool Configuration
     tools_requiring_approval: list[str] = Field(
         default_factory=lambda: ["file_operations", "web_search"]
     )
-    
+
     # Intent Classifier Configuration
     intent_classifier_turns: int = Field(default=5, ge=1, le=20)
     max_schema_retries: int = Field(default=3, ge=1, le=5)
-    
+
     # System Prompts
     main_llm_system_prompt: str = Field(
         default="""You are a helpful AI assistant with access to various tools.
@@ -81,7 +78,7 @@ When you receive tool results:
 
 Always prioritize giving the user a helpful response, even if tools fail."""
     )
-    
+
     intent_classifier_system_prompt: str = Field(
         default="""You are an intent classifier. Your job is to analyze the user's message and determine which tools are relevant.
 
@@ -102,23 +99,20 @@ Rules:
 
 Your response must be valid JSON containing only the array of tool names."""
     )
-    
+
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore"
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
-    
+
     def __init__(self, **kwargs):
         """Initialize settings and create necessary directories."""
         super().__init__(**kwargs)
         self._create_directories()
-    
+
     def _create_directories(self) -> None:
         """
         Create necessary directories if they don't exist.
-        
+
         Creates directories for database, logs, and exports.
         """
         Path(self.database_path).parent.mkdir(parents=True, exist_ok=True)

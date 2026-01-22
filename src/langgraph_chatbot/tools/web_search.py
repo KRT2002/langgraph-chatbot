@@ -1,6 +1,7 @@
 """
 Web search tool using Tavily API.
 """
+
 import requests
 from typing import Optional
 from bs4 import BeautifulSoup
@@ -17,19 +18,19 @@ logger = setup_logger(__name__)
 def web_search(query: str, max_results: int = 5) -> dict:
     """
     Search the web for information using Tavily API.
-    
+
     Parameters
     ----------
     query : str
         Search query
     max_results : int, optional
         Maximum number of results to return, by default 5
-        
+
     Returns
     -------
     dict
         Search results with titles, URLs, and snippets
-        
+
     Examples
     --------
     >>> web_search("latest AI news", max_results=3)
@@ -37,49 +38,38 @@ def web_search(query: str, max_results: int = 5) -> dict:
     """
     try:
         logger.info(f"Web search: '{query}' (max_results={max_results})")
-        
+
         if not settings.tavily_api_key:
             logger.error("Tavily API key not configured")
             return {
                 "status": "error",
                 "error_type": "api_key_missing",
-                "message": "Web search API key not configured. Please add TAVILY_API_KEY to .env file"
+                "message": "Web search API key not configured. Please add TAVILY_API_KEY to .env file",
             }
-        
+
         client = TavilyClient(api_key=settings.tavily_api_key)
-        
-        response = client.search(
-            query=query,
-            max_results=max_results,
-            search_depth="basic"
-        )
-        
+
+        response = client.search(query=query, max_results=max_results, search_depth="basic")
+
         results = []
         for item in response.get("results", []):
-            results.append({
-                "title": item.get("title", ""),
-                "url": item.get("url", ""),
-                "content": item.get("content", ""),
-                # "extracted_text": _extract_full_content_from_url(item.get("url", "")),
-                "score": item.get("score", 0)
-            })
-        
+            results.append(
+                {
+                    "title": item.get("title", ""),
+                    "url": item.get("url", ""),
+                    "content": item.get("content", ""),
+                    # "extracted_text": _extract_full_content_from_url(item.get("url", "")),
+                    "score": item.get("score", 0),
+                }
+            )
+
         logger.info(f"Found {len(results)} search results")
-        return {
-            "status": "success",
-            "query": query,
-            "results": results,
-            "count": len(results)
-        }
-        
+        return {"status": "success", "query": query, "results": results, "count": len(results)}
+
     except Exception as e:
         logger.error(f"Web search error: {str(e)}", exc_info=True)
-        return {
-            "status": "error",
-            "error_type": "search_failed",
-            "message": str(e)
-        }
-    
+        return {"status": "error", "error_type": "search_failed", "message": str(e)}
+
 
 def _extract_full_content_from_url(url: str, timeout: int = 15) -> Optional[str]:
     """
@@ -114,11 +104,7 @@ def _extract_full_content_from_url(url: str, timeout: int = 15) -> Optional[str]
     logger.info("Starting content extraction from URL: %s", url)
 
     try:
-        response = requests.get(
-            url,
-            timeout=timeout,
-            headers={"User-Agent": "Mozilla/5.0"}
-        )
+        response = requests.get(url, timeout=timeout, headers={"User-Agent": "Mozilla/5.0"})
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, "html.parser")

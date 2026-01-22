@@ -15,12 +15,12 @@ logger = setup_logger(__name__)
 def calculate_conversation_stats(messages: list[Any]) -> dict:
     """
     Calculate statistics for a conversation.
-    
+
     Parameters
     ----------
     messages : list[Any]
         List of conversation messages
-        
+
     Returns
     -------
     dict
@@ -35,7 +35,7 @@ def calculate_conversation_stats(messages: list[Any]) -> dict:
             "tools_used": Counter(),
             "total_tokens": 0,  # Approximate
         }
-        
+
         for msg in messages:
             if isinstance(msg, HumanMessage):
                 stats["user_messages"] += 1
@@ -47,13 +47,15 @@ def calculate_conversation_stats(messages: list[Any]) -> dict:
                 stats["tool_calls"] += 1
                 tool_name = getattr(msg, "name", "unknown")
                 stats["tools_used"][tool_name] += 1
-        
+
         # Convert Counter to dict for JSON serialization
         stats["tools_used"] = dict(stats["tools_used"])
-        
-        logger.info(f"Calculated stats: {stats['total_messages']} messages, {stats['tool_calls']} tool calls")
+
+        logger.info(
+            f"Calculated stats: {stats['total_messages']} messages, {stats['tool_calls']} tool calls"
+        )
         return stats
-        
+
     except Exception as e:
         logger.error(f"Error calculating stats: {str(e)}", exc_info=True)
         return {
@@ -69,12 +71,12 @@ def calculate_conversation_stats(messages: list[Any]) -> dict:
 def format_stats_for_display(stats: dict) -> str:
     """
     Format conversation statistics for display.
-    
+
     Parameters
     ----------
     stats : dict
         Statistics dictionary from calculate_conversation_stats
-        
+
     Returns
     -------
     str
@@ -87,10 +89,10 @@ def format_stats_for_display(stats: dict) -> str:
         f"**Tool Calls:** {stats['tool_calls']}",
         f"**Approx. Tokens:** {stats['total_tokens']}",
     ]
-    
+
     if stats["tools_used"]:
         lines.append("\n**Tools Used:**")
         for tool, count in stats["tools_used"].items():
             lines.append(f"  - {tool}: {count}x")
-    
+
     return "\n".join(lines)

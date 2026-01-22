@@ -14,7 +14,7 @@ from langgraph.graph.message import add_messages
 class ChatState(TypedDict):
     """
     State definition for the chatbot conversation.
-    
+
     Attributes
     ----------
     messages : list[BaseMessage]
@@ -26,7 +26,7 @@ class ChatState(TypedDict):
     allowed_tools : Optional[list[str]]
         List of tool names allowed for current turn (set by intent classifier)
     """
-    
+
     messages: Annotated[list[BaseMessage], add_messages]
     pending_tool_approval: Optional[dict]
     conversation_title: Optional[str]

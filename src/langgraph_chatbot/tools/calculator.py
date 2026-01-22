@@ -13,7 +13,7 @@ logger = setup_logger(__name__)
 def calculator(first_num: float, second_num: float, operation: str) -> dict:
     """
     Perform a basic arithmetic operation on two numbers.
-    
+
     Parameters
     ----------
     first_num : float
@@ -22,12 +22,12 @@ def calculator(first_num: float, second_num: float, operation: str) -> dict:
         Second operand
     operation : str
         Operation to perform: 'add', 'sub', 'mul', 'div'
-        
+
     Returns
     -------
     dict
         Result dictionary with operation details or error message
-        
+
     Examples
     --------
     >>> calculator(10, 5, "add")
@@ -35,7 +35,7 @@ def calculator(first_num: float, second_num: float, operation: str) -> dict:
     """
     try:
         logger.info(f"Calculator called: {first_num} {operation} {second_num}")
-        
+
         if operation == "add":
             result = first_num + second_num
         elif operation == "sub":
@@ -48,7 +48,7 @@ def calculator(first_num: float, second_num: float, operation: str) -> dict:
                 return {
                     "status": "error",
                     "error_type": "division_by_zero",
-                    "message": "Division by zero is not allowed"
+                    "message": "Division by zero is not allowed",
                 }
             result = first_num / second_num
         else:
@@ -56,21 +56,17 @@ def calculator(first_num: float, second_num: float, operation: str) -> dict:
             return {
                 "status": "error",
                 "error_type": "invalid_operation",
-                "message": f"Unsupported operation '{operation}'. Use: add, sub, mul, div"
+                "message": f"Unsupported operation '{operation}'. Use: add, sub, mul, div",
             }
-        
+
         logger.info(f"Calculator result: {result}")
         return {
             "status": "success",
             "first_num": first_num,
             "second_num": second_num,
             "operation": operation,
-            "result": result
+            "result": result,
         }
     except Exception as e:
         logger.error(f"Calculator error: {str(e)}", exc_info=True)
-        return {
-            "status": "error",
-            "error_type": "unexpected_error",
-            "message": str(e)
-        }
+        return {"status": "error", "error_type": "unexpected_error", "message": str(e)}

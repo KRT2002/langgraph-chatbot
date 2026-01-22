@@ -50,34 +50,34 @@ A production-ready AI chatbot built with LangGraph, featuring multiple tools, co
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                           USER INTERFACE                             │
+│                           USER INTERFACE                            │
 │  (User Input, Message Display, Analytics, Export)                   │
 └────────────────────┬────────────────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────────────────┐
-│                   LangGraph Workflow                                 │
-│                                                                      │
-│  ┌──────────┐    ┌──────────────┐    ┌──────────┐                  │
+│                   LangGraph Workflow                                │
+│                                                                     │
+│  ┌──────────┐    ┌──────────────┐    ┌──────────┐                   │
 │  │  START   │───▶│   Intent     │───▶│ ChatNode │◄─────┐           │
-│  └──────────┘    │ Classifier   │    └────┬─────┘      │           │
-│                  └──────────────┘         │            │           │
-│                  (Filters tools           │            │           │
-│                   once per turn)          ▼            │           │
-│                                     ┌──────────────┐   │           │
-│                                     │ToolsCondition│   │           │
-│                                     └──────┬───────┘   │           │
-│                                            │            │           │
-│                                            ▼            │           │
-│                                      ┌──────────┐      │           │
-│                                      │ ToolNode │──────┘           │
-│                                      └──────────┘                  │
-│                                      (Loop: ChatNode ↔ ToolNode)   │
-│                                                                      │
+│  └──────────┘    │ Classifier   │    └────┬─────┘      │            │
+│                  └──────────────┘         │            │            │
+│                  (Filters tools           │            │            │
+│                   once per turn)          ▼            │            │
+│                                     ┌──────────────┐   │            │
+│                                     │ToolsCondition│   │            │
+│                                     └──────┬───────┘   │            │
+│                                            │           │            │
+│                                            ▼           │            │
+│                                      ┌──────────┐      │            │
+│                                      │ ToolNode │──────┘            │
+│                                      └──────────┘                   │
+│                                      (Loop: ChatNode ↔ ToolNode)    │
+│                                                                     │
 │   Features: Intent Classification, Schema Retry, Error Recovery     │
 └────────────────────┬────────────────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────────────────┐
-│                   Tool Collection                                    │
+│                   Tool Collection                                   │
 │  • Calculator  • Weather  • Unit Converter                          │
 │  • DateTime    • File Ops • Web Search                              │
 └─────────────────────────────────────────────────────────────────────┘
@@ -312,8 +312,8 @@ The project uses:
 
 Run formatting:
 ```bash
-black src/
-ruff check src/
+uv run black src/
+uv run ruff check src/
 ```
 
 ### Type Hints
