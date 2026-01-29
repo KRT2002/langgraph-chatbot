@@ -1,5 +1,6 @@
 """LangGraph workflow components."""
 
+from langgraph_chatbot.graph.approval_node import approval_check_node, should_interrupt
 from langgraph_chatbot.graph.intent_classifier import intent_classifier_node
 from langgraph_chatbot.graph.nodes import chat_node, create_llm, tool_node
 from langgraph_chatbot.graph.state import ChatState
@@ -10,6 +11,8 @@ __all__ = [
     "chat_node",
     "tool_node",
     "intent_classifier_node",
+    "approval_check_node",
+    "should_interrupt",
     "create_llm",
     "chatbot",
     "create_chatbot",

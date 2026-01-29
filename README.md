@@ -31,8 +31,11 @@ A production-ready AI chatbot built with LangGraph, featuring multiple tools, co
 
 ### 🔒 Human-in-the-Loop
 - **Tool Approval** - Require user approval for sensitive operations
+- **Batch Approval** - Approve or reject multiple tools at once
+- **Partial Approval** - Individually approve or reject each tool
 - **Configurable** - Enable/disable per session
 - **Fine-grained Control** - Specify which tools require approval
+- **Interactive UI** - Clear approval interface with task descriptions
 
 ### 📊 Analytics
 - **Message Statistics** - Track user/assistant message counts
@@ -50,34 +53,52 @@ A production-ready AI chatbot built with LangGraph, featuring multiple tools, co
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                           USER INTERFACE                            │
-│  (User Input, Message Display, Analytics, Export)                   │
+│                           USER INTERFACE                             │
+│  (User Input, Message Display, Analytics, Export, Approval UI)      │
 └────────────────────┬────────────────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────────────────┐
-│                   LangGraph Workflow                                │
-│                                                                     │
-│  ┌──────────┐    ┌──────────────┐    ┌──────────┐                   │
-│  │  START   │───▶│   Intent     │───▶│ ChatNode │◄─────┐           │
-│  └──────────┘    │ Classifier   │    └────┬─────┘      │            │
-│                  └──────────────┘         │            │            │
-│                  (Filters tools           │            │            │
-│                   once per turn)          ▼            │            │
-│                                     ┌──────────────┐   │            │
-│                                     │ToolsCondition│   │            │
-│                                     └──────┬───────┘   │            │
-│                                            │           │            │
-│                                            ▼           │            │
-│                                      ┌──────────┐      │            │
-│                                      │ ToolNode │──────┘            │
-│                                      └──────────┘                   │
-│                                      (Loop: ChatNode ↔ ToolNode)    │
-│                                                                     │
-│   Features: Intent Classification, Schema Retry, Error Recovery     │
+│                   LangGraph Workflow                                 │
+│                                                                      │
+│  ┌──────────┐    ┌──────────────┐    ┌──────────┐                  │
+│  │  START   │───▶│   Intent     │───▶│ ChatNode │                  │
+│  └──────────┘    │ Classifier   │    └────┬─────┘                  │
+│                  └──────────────┘         │                          │
+│                  (Filters tools           │                          │
+│                   once per turn)          ▼                          │
+│                                     ┌──────────────┐                 │
+│                                     │ToolsCondition│                 │
+│                                     └──────┬───────┘                 │
+│                                            │                         │
+│                    ┌───────────────────────┘                         │
+│                    ▼                                                 │
+│              ┌──────────────┐                                        │
+│              │ Approval     │                                        │
+│              │ Check Node   │                                        │
+│              └──────┬───────┘                                        │
+│            (Checks if approval                                       │
+│             needed)  │                                               │
+│                      ▼                                               │
+│         ┌────────────┴─────────────┐                                │
+│         │                          │                                │
+│    Needs approval?           Auto-approved?                         │
+│         │                          │                                │
+│         ▼                          ▼                                │
+│    INTERRUPT ──────────────▶  ToolNode ◄────────────┐              │
+│  (wait for user)                  │                 │              │
+│         │                          └─────────────────┘              │
+│         └──────────────────────────┘                                │
+│                                    │                                │
+│                                    ▼                                │
+│                              Back to ChatNode                        │
+│                                                                      │
+│   Loop: ChatNode ↔ Approval Check ↔ ToolNode                        │
+│                                                                      │
+│   Features: Intent Classification, Approval Control, Schema Retry   │
 └────────────────────┬────────────────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────────────────┐
-│                   Tool Collection                                   │
+│                   Tool Collection                                    │
 │  • Calculator  • Weather  • Unit Converter                          │
 │  • DateTime    • File Ops • Web Search                              │
 └─────────────────────────────────────────────────────────────────────┘
@@ -201,36 +222,40 @@ class Settings(BaseSettings):
 langgraph-chatbot/
 ├── src/
 │   ├── __init__.py
-│   ├── config.py              # Configuration management
+│   ├── config.py                      # Configuration management
 │   ├── graph/
 │   │   ├── __init__.py
-│   │   ├── state.py           # State definition
-│   │   ├── nodes.py           # Graph nodes
-│   │   ├── intent_classifier.py  # Intent classification node
-│   │   └── workflow.py        # Workflow construction
+│   │   ├── state.py                   # State definition
+│   │   ├── nodes.py                   # Graph nodes
+│   │   ├── intent_classifier.py       # Intent classification node
+│   │   ├── approval_node.py           # Human-in-loop approval node
+│   │   └── workflow.py                # Workflow construction
 │   ├── tools/
 │   │   ├── __init__.py
-│   │   ├── calculator.py      # Arithmetic operations
-│   │   ├── weather.py         # Weather information
-│   │   ├── unit_converter.py  # Unit conversions
-│   │   ├── datetime_utils.py  # Date/time utilities
-│   │   ├── file_operations.py # File management
-│   │   └── web_search.py      # Web search
+│   │   ├── calculator.py              # Arithmetic operations
+│   │   ├── weather.py                 # Weather information
+│   │   ├── unit_converter.py          # Unit conversions
+│   │   ├── datetime_utils.py          # Date/time utilities
+│   │   ├── file_operations.py         # File management
+│   │   └── web_search.py              # Web search
 │   ├── utils/
 │   │   ├── __init__.py
-│   │   ├── logger.py          # Logging configuration
-│   │   ├── analytics.py       # Statistics calculation
-│   │   ├── export.py          # Export functionality
-│   │   └── tool_descriptions.py  # Tool description extraction
+│   │   ├── logger.py                  # Logging configuration
+│   │   ├── analytics.py               # Statistics calculation
+│   │   ├── export.py                  # Export functionality
+│   │   └── tool_descriptions.py       # Tool description extraction
 │   └── ui/
 │       ├── __init__.py
-│       └── streamlit_app.py   # Streamlit interface
-├── data/                       # SQLite database & user files
-├── logs/                       # Application logs
-├── exports/                    # Exported conversations
-├── .env.example               # Environment template
+│       ├── streamlit_app.py           # Streamlit interface
+│       ├── session_handlers.py        # Session management 
+│       ├── approval_handlers.py       # Approval logic 
+│       └── ui_components.py           # UI components 
+├── data/                              # SQLite database & user files
+├── logs/                              # Application logs
+├── exports/                           # Exported conversations
+├── .env.example                       # Environment template
 ├── .gitignore
-├── pyproject.toml             # Project dependencies
+├── pyproject.toml                     # Project dependencies
 └── README.md
 ```
 

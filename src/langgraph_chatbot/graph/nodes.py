@@ -3,7 +3,7 @@ Graph nodes for the LangGraph chatbot workflow.
 """
 
 from langchain_core.exceptions import OutputParserException
-from langchain_core.messages import AIMessage, SystemMessage
+from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langchain_groq import ChatGroq
 from langgraph.prebuilt import ToolNode
 from pydantic import ValidationError
@@ -54,10 +54,12 @@ def create_llm(tools: list = None, strict: bool = True) -> ChatGroq:
 def chat_node(state: ChatState) -> dict:
     """
     LLM node that processes messages with schema error retry and fallback.
+
     This node implements:
     - Intent-based tool filtering
     - Schema error retry with feedback (max 3 attempts)
     - Final fallback to LLM without tools
+    - Rate limit error handling
 
     Parameters
     ----------
@@ -72,6 +74,7 @@ def chat_node(state: ChatState) -> dict:
     try:
         messages = state["messages"]
         allowed_tools = state.get("allowed_tools", [])
+
         logger.info(f"Chat node processing {len(messages)} messages")
 
         # Add system prompt to messages if not present
@@ -106,10 +109,11 @@ def chat_node(state: ChatState) -> dict:
                 else:
                     logger.info("AI generated text response")
 
+                # Clear rejected_tools from state after processing
                 return {"messages": [response]}
 
             except Exception as e:
-                # Check for rate limit error - don't retry, return to LLM
+                # Check for rate limit error - don't retry, return to user
                 if "groq.RateLimitError" in str(type(e)) or "rate_limit_exceeded" in str(e).lower():
                     logger.error(f"Rate limit error: {str(e)}")
                     error_msg = AIMessage(content=f"Rate limit error occurred: {str(e)}")
@@ -153,6 +157,7 @@ def chat_node(state: ChatState) -> dict:
 
         # After max retries, fallback to LLM without tools
         logger.warning(f"Max retries ({max_retries}) exceeded, falling back to LLM without tools")
+
         try:
             llm_no_tools = create_llm(tools=None, strict=False)
             response = llm_no_tools.invoke(current_messages)
@@ -174,5 +179,137 @@ def chat_node(state: ChatState) -> dict:
         return {"messages": [error_msg]}
 
 
+class FilteredToolNode:
+    """
+    Custom wrapper around ToolNode that filters out tool calls
+    that already have corresponding ToolMessages in the state.
+
+    This prevents duplicate tool execution when ToolMessages are
+    manually injected into the state.
+    """
+
+    def __init__(self, tools):
+        """
+        Initialize the FilteredToolNode.
+
+        Parameters
+        ----------
+        tools : list
+            List of tools to be used by the underlying ToolNode
+        """
+        self.tool_node = ToolNode(tools)
+
+    def __call__(self, state: dict) -> dict:
+        """
+        Execute tool calls, filtering out those already executed.
+
+        Parameters
+        ----------
+        state : dict
+            The current state containing messages
+
+        Returns
+        -------
+        dict
+            Updated state with new ToolMessages
+        """
+        logger.info("FilteredToolNode called - starting tool call filtering")
+        messages = state.get("messages", [])
+        logger.debug(f"Total messages in state: {len(messages)}")
+
+        # Get all existing ToolMessage IDs from state
+        existing_tool_ids = {msg.tool_call_id for msg in messages if isinstance(msg, ToolMessage)}
+        logger.info(
+            f"Found {len(existing_tool_ids)} existing ToolMessages with IDs: {existing_tool_ids}"
+        )
+
+        # Find the last AIMessage with tool_calls
+        last_ai_message = None
+        for msg in reversed(messages):
+            if isinstance(msg, AIMessage) and msg.tool_calls:
+                last_ai_message = msg
+                break
+
+        # If no AIMessage with tool_calls, just return empty
+        if not last_ai_message:
+            logger.warning("No AIMessage with tool_calls found in state - returning empty")
+            return {"messages": []}
+
+        logger.info(f"Found AIMessage with {len(last_ai_message.tool_calls)} tool_calls")
+        tool_call_ids = [tc["id"] for tc in last_ai_message.tool_calls]
+        logger.debug(f"Tool call IDs in AIMessage: {tool_call_ids}")
+
+        # Filter out tool_calls that already have ToolMessages
+        filtered_tool_calls = [
+            tc for tc in last_ai_message.tool_calls if tc["id"] not in existing_tool_ids
+        ]
+
+        filtered_ids = [tc["id"] for tc in filtered_tool_calls]
+        skipped_ids = [
+            tc["id"] for tc in last_ai_message.tool_calls if tc["id"] in existing_tool_ids
+        ]
+
+        logger.info(
+            f"Filtered tool_calls: {len(filtered_tool_calls)} to execute, {len(skipped_ids)} already executed"
+        )
+        if skipped_ids:
+            logger.info(f"Skipping tool_calls with IDs (already executed): {skipped_ids}")
+        if filtered_ids:
+            logger.info(f"Will execute tool_calls with IDs: {filtered_ids}")
+
+        # If all tool_calls already executed, return empty
+        if not filtered_tool_calls:
+            logger.info("All tool_calls already executed - returning empty")
+            return {"messages": []}
+
+        # Create a new AIMessage with only the filtered tool_calls
+        filtered_ai_message = AIMessage(
+            content=last_ai_message.content,
+            tool_calls=filtered_tool_calls,
+            id=last_ai_message.id,
+            additional_kwargs=last_ai_message.additional_kwargs,
+            response_metadata=last_ai_message.response_metadata,
+        )
+
+        # Find the index of the last_ai_message in the messages list
+        ai_message_index = None
+        for i in range(len(messages) - 1, -1, -1):
+            if messages[i] is last_ai_message:
+                ai_message_index = i
+                break
+
+        logger.debug(f"Found AIMessage at index {ai_message_index} in messages list")
+
+        # Replace the original AIMessage with the filtered version
+        # This preserves any messages that came after it (like manually added ToolMessages)
+        updated_messages = (
+            messages[:ai_message_index] + [filtered_ai_message] + messages[ai_message_index + 1 :]
+        )
+
+        logger.debug(f"Created updated messages: {len(updated_messages)} total messages")
+        logger.debug(
+            f"Messages after AIMessage that will be preserved: {len(messages[ai_message_index + 1:])}"
+        )
+
+        # Create temporary state with filtered message
+        # IMPORTANT: This temp_state is only used for ToolNode execution
+        # It is NOT saved to the graph state - only the result (new ToolMessages) is returned
+        temp_state = {**state, "messages": updated_messages}
+
+        # Execute the tool node with filtered tool_calls
+        # ToolNode will only see and execute the filtered tool_calls
+        logger.info(f"Invoking ToolNode with {len(filtered_tool_calls)} filtered tool_calls")
+        result = self.tool_node.invoke(temp_state)
+
+        # Result contains only the NEW ToolMessages from executed tool_calls
+        # These get appended to the original state by LangGraph
+        new_tool_messages = result.get("messages", [])
+        logger.info(
+            f"ToolNode execution complete - generated {len(new_tool_messages)} new ToolMessages"
+        )
+
+        return result
+
+
 # Tool execution node
-tool_node = ToolNode(ALL_TOOLS)
+tool_node = FilteredToolNode(ALL_TOOLS)

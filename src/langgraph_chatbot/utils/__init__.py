@@ -8,6 +8,7 @@ from langgraph_chatbot.utils.export import (
 )
 from langgraph_chatbot.utils.logger import setup_logger
 from langgraph_chatbot.utils.tool_descriptions import (
+    describe_tool_call,
     extract_tool_description,
     get_cached_tool_descriptions,
     get_tools_for_intent_classifier,
@@ -23,4 +24,5 @@ __all__ = [
     "extract_tool_description",
     "get_tools_for_intent_classifier",
     "get_cached_tool_descriptions",
+    "describe_tool_call",
 ]

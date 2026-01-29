@@ -31,8 +31,10 @@ def calculate_conversation_stats(messages: list[Any]) -> dict:
             "total_messages": len(messages),
             "user_messages": 0,
             "assistant_messages": 0,
-            "tool_calls": 0,
+            "tool_calls_executed": 0,
+            "tool_calls_rejected": 0,
             "tools_used": Counter(),
+            "tools_rejected": Counter(),
             "total_tokens": 0,  # Approximate
         }
 
@@ -44,15 +46,27 @@ def calculate_conversation_stats(messages: list[Any]) -> dict:
                 stats["assistant_messages"] += 1
                 stats["total_tokens"] += len(msg.content.split())
             elif isinstance(msg, ToolMessage):
-                stats["tool_calls"] += 1
                 tool_name = getattr(msg, "name", "unknown")
-                stats["tools_used"][tool_name] += 1
+
+                # Check if the tool call was rejected by the user
+                if (
+                    msg.content
+                    == "Tool execution was rejected by the user. Please respond without using this tool."
+                ):
+                    stats["tool_calls_rejected"] += 1
+                    stats["tools_rejected"][tool_name] += 1
+                else:
+                    stats["tool_calls_executed"] += 1
+                    stats["tools_used"][tool_name] += 1
 
         # Convert Counter to dict for JSON serialization
         stats["tools_used"] = dict(stats["tools_used"])
+        stats["tools_rejected"] = dict(stats["tools_rejected"])
 
         logger.info(
-            f"Calculated stats: {stats['total_messages']} messages, {stats['tool_calls']} tool calls"
+            f"Calculated stats: {stats['total_messages']} messages, "
+            f"{stats['tool_calls_executed']} tool calls executed, "
+            f"{stats['tool_calls_rejected']} tool calls rejected"
         )
         return stats
 
@@ -62,8 +76,10 @@ def calculate_conversation_stats(messages: list[Any]) -> dict:
             "total_messages": 0,
             "user_messages": 0,
             "assistant_messages": 0,
-            "tool_calls": 0,
+            "tool_calls_executed": 0,
+            "tool_calls_rejected": 0,
             "tools_used": {},
+            "tools_rejected": {},
             "total_tokens": 0,
         }
 
@@ -86,13 +102,19 @@ def format_stats_for_display(stats: dict) -> str:
         f"**Total Messages:** {stats['total_messages']}",
         f"**User Messages:** {stats['user_messages']}",
         f"**Assistant Messages:** {stats['assistant_messages']}",
-        f"**Tool Calls:** {stats['tool_calls']}",
+        f"**Tool Calls Executed:** {stats['tool_calls_executed']}",
+        f"**Tool Calls Rejected:** {stats['tool_calls_rejected']}",
         f"**Approx. Tokens:** {stats['total_tokens']}",
     ]
 
     if stats["tools_used"]:
-        lines.append("\n**Tools Used:**")
+        lines.append("\n**Tools Executed:**")
         for tool, count in stats["tools_used"].items():
+            lines.append(f"  - {tool}: {count}x")
+
+    if stats["tools_rejected"]:
+        lines.append("\n**Tools Rejected:**")
+        for tool, count in stats["tools_rejected"].items():
             lines.append(f"  - {tool}: {count}x")
 
     return "\n".join(lines)

@@ -94,6 +94,86 @@ def get_tools_for_intent_classifier(tools: list[Any]) -> str:
     return formatted
 
 
+def describe_tool_call(tool_name: str, tool_args: dict) -> str:
+    """
+    Generate a human-readable description of what a tool call will do.
+
+    Parameters
+    ----------
+    tool_name : str
+        Name of the tool
+    tool_args : dict
+        Arguments for the tool call
+
+    Returns
+    -------
+    str
+        Human-readable description of the tool's task
+
+    Examples
+    --------
+    >>> describe_tool_call("get_weather", {"city": "London"})
+    'Fetch current weather information for London'
+    """
+    try:
+        # Tool-specific descriptions
+        if tool_name == "calculator":
+            op = tool_args.get("operation", "calculate")
+            first = tool_args.get("first_num", "?")
+            second = tool_args.get("second_num", "?")
+            return f"Calculate {first} {op} {second}"
+
+        elif tool_name == "get_weather":
+            city = tool_args.get("city", "unknown location")
+            return f"Fetch current weather information for {city}"
+
+        elif tool_name == "unit_converter":
+            value = tool_args.get("value", "?")
+            from_unit = tool_args.get("from_unit", "?")
+            to_unit = tool_args.get("to_unit", "?")
+            return f"Convert {value} {from_unit} to {to_unit}"
+
+        elif tool_name == "get_current_time":
+            tz = tool_args.get("timezone", "UTC")
+            return f"Get current time in {tz} timezone"
+
+        elif tool_name == "date_calculator":
+            start = tool_args.get("start_date", "?")
+            op = tool_args.get("operation", "?")
+            days = tool_args.get("days", "?")
+            return f"Calculate date by {op}ing {days} days from {start}"
+
+        elif tool_name == "file_operations":
+            operation = tool_args.get("operation", "?")
+            filename = tool_args.get("filename", "?")
+            if operation == "read":
+                return f"Read contents of file '{filename}'"
+            elif operation == "write":
+                return f"Write content to file '{filename}'"
+            elif operation == "append":
+                return f"Append content to file '{filename}'"
+            elif operation == "delete":
+                return f"Delete file '{filename}'"
+            elif operation == "list":
+                return "List all available files"
+            else:
+                return f"Perform '{operation}' operation on file '{filename}'"
+
+        elif tool_name == "web_search":
+            query = tool_args.get("query", "?")
+            max_results = tool_args.get("max_results", 5)
+            return f"Search the web for '{query}' (up to {max_results} results)"
+
+        else:
+            # Generic fallback
+            args_str = ", ".join(f"{k}={v}" for k, v in tool_args.items())
+            return f"Execute {tool_name} with arguments: {args_str}"
+
+    except Exception as e:
+        logger.warning(f"Error describing tool call: {e}")
+        return f"Execute {tool_name}"
+
+
 # Cache for tool descriptions (regenerate only when tools change)
 _CACHED_TOOL_DESCRIPTIONS = None
 _CACHED_TOOL_COUNT = 0
